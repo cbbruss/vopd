@@ -1,13 +1,10 @@
 import argparse
-from pdfminer.high_level import extract_text_to_fp
 import datetime
-import io
-import os
-import sys
 import csv
 import re
 from nltk.tokenize import word_tokenize
 import nltk
+from document import *
 
 nltk.download('punkt')
 
@@ -20,13 +17,6 @@ keywords = []
 normalize_terms = {}
 
 
-def extract_text(pdf_filepath):
-    with open(pdf_filepath, "rb") as fp:
-        text_fp = io.StringIO()
-        extract_text_to_fp(fp, text_fp)
-        return text_fp.getvalue()
-
-
 def tokenize(transcript_text):
     # Convert to lower case
     clean_transcript_text = transcript_text.lower()
@@ -37,20 +27,6 @@ def tokenize(transcript_text):
         clean_transcript_text = clean_transcript_text.replace(term, normalized_term)
     return word_tokenize(clean_transcript_text)
 
-
-def show_data(show_file_path):
-    show_file_name = os.path.split(show_file_path)[1]
-
-    show_info = {}
-    month = show_file_name[0:2]
-    day = show_file_name[3:5]
-    year = show_file_name[6:10]
-
-    show_info['show_date'] = month+'/'+day+'/'+year
-    show_info['show_id'] = show_file_name[11:14]
-    show_info['show_name'] = show_file_name[15:-4] # leave off .PDF
-
-    return show_info
 
 def window_iter(transcript_words, window_size):
     pos = 2 - window_size
@@ -153,22 +129,12 @@ if __name__ == '__main__':
         for row in normalize_terms_csv:
             normalize_terms[row[0]] = row[1]
 
-    # Compose m_transcript_filepaths list
-    if not os.path.exists(args.transcript):
-        print('{} does not exist'.format(args.transcript))
-        sys.exit(1)
-    m_transcript_filepaths = []
-    if os.path.isdir(args.transcript):
-        for filename in os.listdir(args.transcript):
-            filepath = os.path.join(args.transcript, filename)
-            if os.path.isfile(filepath) and filename.lower().endswith('.pdf'):
-                m_transcript_filepaths.append(filepath)
-    else:
-        m_transcript_filepaths.append(args.transcript)
+    pdfdocset = PDFTranscriptDocumentSet(args.transcript)
 
     # Start processing
     headers = ['extract_date', 'file', 'show_date', 'show_id', 'show_name', 'subject', 'subject_code', 'keyword', 'keyword_code', 'keyword_id', 'relevant?', 'extract']
 
+    # If extracts.csv exists, append to it rather than overwriting it.
     if os.path.exists('extracts.csv'):
         append_extracts = True
         file_mode = 'a+'
@@ -185,11 +151,12 @@ if __name__ == '__main__':
         if not append_extracts:
             extract_csv.writerow(headers)
 
-        for m_transcript_filepath in m_transcript_filepaths:
-            show_info = show_data(m_transcript_filepath)
+        for pdfdoc in pdfdocset:
+            show_info = pdfdoc.metadata
 
+            m_transcript_filepath = show_info['show_file_path']
             print('Processing {}'.format(m_transcript_filepath))
-            m_transcript_text = extract_text(m_transcript_filepath)
+            m_transcript_text = pdfdoc.text
             m_transcript_words = tokenize(m_transcript_text)
             for m_subject, m_subject_pos, m_keyword, m_keyword_pos in process_transcript_iter(m_transcript_words,
                                                                                               window_size=args.window):
