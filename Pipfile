@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[requires]
+python_version = "3.7.2"
+
+[packages]
+numpy = "*"
+sklearn = "*"
+gensim = "*"
+pandas = "*"
+nltk = "*"
+
+[dev-packages]
+jupyter = "*"
+matplotlib = "*"
+seaborn = "*"
